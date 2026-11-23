@@ -12,7 +12,8 @@ A role-based school management application built with Next.js App Router, TypeSc
 - Class timetables and homework assignments
 - School notices and in-app notifications
 - Downloadable PDF report cards for student and parent accounts
-- Responsive interfaces and server-side role/ownership validation
+- Consent-based email and WhatsApp notice delivery
+- Wise sandbox payroll transfer creation
 
 ## Run locally (Windows PowerShell)
 
@@ -33,21 +34,24 @@ A role-based school management application built with Next.js App Router, TypeSc
 
 4. Open `http://localhost:3000`, sign in, and select **School tools** from the dashboard.
 
-Demo accounts (password for all is `School123!`):
+## Phase 3 integrations
 
-| Role | Email |
-| --- | --- |
-| Admin | `admin@northstar.edu` |
-| Teacher | `teacher@northstar.edu` |
-| Student | `student@northstar.edu` |
-| Parent | `parent@northstar.edu` |
+### Wise payroll disbursement
+
+Configure `WISE_ENVIRONMENT=sandbox`, `WISE_API_TOKEN`, and `WISE_PROFILE_ID`. Administrators can create a Wise sandbox transfer for a draft payroll record with `POST /api/payroll/{payrollId}/wise`, providing `recipientId` and ISO 4217 `currency`. The endpoint is hardcoded to Wise's sandbox API, records an idempotent attempt, and reports the Wise transfer as created but not funded. It never marks payroll paid and cannot send a production transfer. Configure sandbox recipient accounts and funding in Wise before testing.
+
+### SendGrid email and Twilio WhatsApp
+
+Users can set their own delivery preferences using `POST /api/communications` with `emailOptIn`, `whatsappOptIn`, and an optional E.164 `phone`. Preferences default to opted out. An administrator can send a notice using `PUT /api/communications` with `title`, `message`, and `audience` (`all`, `parent`, `student`, or `teacher`). Delivery is limited to active users who opted in to the selected channel. Configure `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` to enable providers. WhatsApp users must have separately opted in under applicable provider policies. Unconfigured providers are skipped; provider failures are reported without exposing secrets.
+
+### Vercel deployment
+
+This app uses Next.js App Router route handlers with Node.js runtime for integrations, so it can deploy using Vercel's standard Next.js build. Set `MONGODB_URI`, `JWT_SECRET`, and only the provider credentials you use in Vercel Project Settings → Environment Variables. Keep Wise sandbox credentials only; never supply production Wise tokens. Configure Atlas network access for Vercel and redeploy after changing environment variables. No persistent local filesystem or background process is required by these integrations.
 
 ## Security and deployment
 
-Set `MONGODB_URI` and a unique `JWT_SECRET` in Vercel environment variables. Keep local secrets out of Git. Replace demo passwords and remove seed-only records before production use. Configure Atlas access for your deployment environment.
+Keep local secrets out of Git. Replace demo passwords and remove seed-only records before production use. Communication preferences are opt-in and users may turn either channel off by setting its value to `false`. API keys are server-side only and must never use `NEXT_PUBLIC_` prefixes.
 
-Notices create in-app notification records for the selected audience. Email, SMS, and WhatsApp delivery are not configured in this release; connect a delivery provider and establish consent, templates, and opt-out handling before enabling external messages. Payroll records track scheduled amounts and payment status; no bank transfers or payment collection are performed.
+## Checks
 
-## Phase 2 scope
-
-Fees and payroll can be recorded and viewed by permitted roles. Timetable and homework entries can be managed by administrators and assigned teachers. Notices are distributed in-app. Student/parent-linked accounts can download report cards as PDFs using available marks and attendance records. Payment settlement workflows, payroll disbursement, marks-entry UI, external message delivery, and edit/delete screens are follow-up work.
+Run `npm run typecheck`, `npm run lint`, and `npm run build` before deployment.
